@@ -25,14 +25,14 @@
 
 int main(void)
 {
-
-		GPIOA->MODER|=GPIO_MODER_MODER5_0;				//Select output mode (01) on GPIOA pin 2
-			//GPIOC->MODER = (~(GPIO_MODER_MODER5))|(GPIO_MODER_MODER5_0);
 		RCC->AHBENR |= RCC_AHBENR_GPIOAEN;				//Enable the peripheral clock of GPIOA
-
-		uint8_t pole[32]={1,0,1,0,1,0,0,1,1,1,0,1,1,1,0,1,1,1,0,0,1,0,1,0,1,0,0,0,0,0,0,0};
-
+		GPIOA->MODER|=GPIO_MODER_MODER5_0;				//Select output mode (01) on GPIOA pin 2
 
     /* Loop forever */
-	for(;;);
+	for(;;)
+	{
+		GPIOA->ODR ^= (1<<5); // toggle
+		for (volatile uint32_t i = 0; i < 100000; i++) {}
+
+	}
 }
