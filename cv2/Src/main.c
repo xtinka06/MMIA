@@ -21,7 +21,9 @@
 static volatile uint32_t Tick;
 
 #define LED_TIME_BLINK 300
-
+#define BUTTON_DEBOUNCE 40	//doba pro odstreanění zákmitu
+#define LED_TIME_SHORT 100
+#define LED_TIME_LONG 1000
 
 #if !defined(__SOFT_FP__) && defined(__ARM_FP)
   #warning "FPU is not initialized, but the project is compiling for an FPU. Please initialize the FPU before use."
@@ -36,9 +38,9 @@ void EXTI0_1_IRQHandler(void)
  }
 
 void SysTick_Handler(void)
- {
- Tick++;
- }
+{
+	Tick++;
+}
 
 
 void blikac(void)
@@ -50,7 +52,35 @@ void blikac(void)
 	}
  }
 
+void tlacitka (void)
+{
+	static uint32_t debounce1;
+	static uint32_t off_time;
+	if (Tick > debounce1 + BUTTON_DEBOUNCE) { //Tick větší jak 40ms proběhne vzorkování
 
+		static uint32_t old_s2;				//nese starý stav talčítka S2
+		uint32_t new_s2 = GPIOC->IDR & (1<<0);	//automatická proměná ,která nese aktuální hodnotu tlačítka S2
+		static uint32_t old_s1;				//nese starý stav talčítka S1
+		uint32_t new_s1 = GPIOC->IDR & (0<<0);	//automatická proměná ,která nese aktuální hodnotu tlačítka S1
+
+		if (old_s2 && !new_s2) { // testujeme sestupnou hranu, starý stav=1 a zárověň nový stav =0
+			off_time = Tick + LED_TIME_SHORT;
+			GPIOB->BSRR = (1<<0);
+		}
+
+		if (old_s1 && !new_s1) { // testujeme sestupnou hranu, starý stav=1 a zárověň nový stav =0
+			off_time = Tick + LED_TIME_LONG;
+			GPIOB->BSRR = (1<<0);
+		}
+
+		old_s2 = new_s2;
+		old_s1 = new_s1;
+	}
+
+	if (Tick > off_time) {	//po uplynutí doba ledka zhasne
+		GPIOB->BRR = (1<<0);
+	}
+}
 
 int main(void)
 {
@@ -73,6 +103,7 @@ int main(void)
     /* Loop forever */
 	for(;;) {
 		blikac();
+		tlacitka();
 
 	}
 }
