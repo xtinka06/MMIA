@@ -24,6 +24,7 @@ static volatile uint32_t Tick;
 #define BUTTON_DEBOUNCE 40	//doba pro odstreanění zákmitu
 #define LED_TIME_SHORT 100
 #define LED_TIME_LONG 1000
+#define BUTTON_DEBOUNCE_SHORT 5		//5ms vzorkování
 
 #if !defined(__SOFT_FP__) && defined(__ARM_FP)
   #warning "FPU is not initialized, but the project is compiling for an FPU. Please initialize the FPU before use."
@@ -55,29 +56,33 @@ void blikac(void)
 void tlacitka (void)
 {
 	static uint32_t debounce1;
+	static uint32_t debounce2; // vrozkování po 5ms
 	static uint32_t off_time;
+
+
 	if (Tick > debounce1 + BUTTON_DEBOUNCE) { //Tick větší jak 40ms proběhne vzorkování
 
 		static uint32_t old_s2;				//nese starý stav talčítka S2
 		uint32_t new_s2 = GPIOC->IDR & (1<<0);	//automatická proměná ,která nese aktuální hodnotu tlačítka S2
-		static uint32_t old_s1;				//nese starý stav talčítka S1
-		uint32_t new_s1 = GPIOC->IDR & (0<<0);	//automatická proměná ,která nese aktuální hodnotu tlačítka S1
 
 		if (old_s2 && !new_s2) { // testujeme sestupnou hranu, starý stav=1 a zárověň nový stav =0
 			off_time = Tick + LED_TIME_SHORT;
 			GPIOB->BSRR = (1<<0);
 		}
-
-		if (old_s1 && !new_s1) { // testujeme sestupnou hranu, starý stav=1 a zárověň nový stav =0
-			off_time = Tick + LED_TIME_LONG;
-			GPIOB->BSRR = (1<<0);
-		}
-
 		old_s2 = new_s2;
-		old_s1 = new_s1;
+
+		if (Tick > debounce2 + BUTTON_DEBOUNCE_SHORT) {
+			static uint16_t debounce = 0xFFFF;		//a proč je v návodě 0x7FFF???
+
+			debounce <<=1;
+			if (GPIOC->IDR & (1<<1)) debounce |= 0x0001;		//zlož na nejniší bit 1, zůstane vše kromě nejnižšího
+			if (debounce == 8000){
+				GPIOB->BSRR = (1<<0);
+			}
+		}
 	}
 
-	if (Tick > off_time) {	//po uplynutí doba ledka zhasne
+	if (Tick > off_time) {	//po uplynutí doby led=0
 		GPIOB->BRR = (1<<0);
 	}
 }
@@ -93,12 +98,6 @@ int main(void)
 	RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
 
 	SysTick_Config(8000); // 1ms
-/*
-	SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI0_PC; // select PC0 for EXTI0
-	EXTI->IMR |= EXTI_IMR_MR0; // mask
-	EXTI->FTSR |= EXTI_FTSR_TR0; // trigger on falling edge
-	NVIC_EnableIRQ(EXTI0_1_IRQn); // enable EXTI0_1
-*/
 
     /* Loop forever */
 	for(;;) {
